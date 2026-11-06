@@ -1,7 +1,72 @@
-
 const { Telegraf, Markup } = require('telegraf')
+const prisma = require('./prisma')
 
 const bot = new Telegraf(process.env.BOT_TOKEN)
+
+
+
+
+// Start
+bot.start(ctx => {
+    ctx.reply(`Welcome ${ctx.from.first_name} to my first bot`,
+        Markup.keyboard([
+            Markup.button.contactRequest('📞 Telefon nomerizni kiriting !?')
+        ]).resize().oneTime()
+    )
+})
+
+
+bot.command('app', ctx => {
+    ctx.reply('📱 Bot ilovas',
+        Markup.inlineKeyboard([
+           [ Markup.button.webApp('📱 Ilovani ochish', 'https://preview--fn2gameverse.lovable.app/')]
+        ])
+    )
+})
+
+
+bot.on('contact', async ctx => {
+
+  const exsist = await prisma.user.findUnique({ where:  { phone: ctx.message.contact.phone_number } })
+
+    if (!exsist) {
+        await prisma.user.create({
+            data: { name: ctx.from.first_name, phone: ctx.message.contact.phone_number }
+        })
+    }
+
+    await ctx.reply(
+        `👋 Assalomu alaykum, ${ctx.from.first_name}!\n\n` +
+        '🤖 <b>Ma’lumotlar botiga xush kelibsiz!</b>\n\n' +
+        'Kerakli bo‘limni tanlang:',
+        {
+            parse_mode: 'HTML',
+            ...mainKeyboard
+        }
+    )
+
+    await ctx.reply(exsist ? 'Siz avval ro‘yxatdan o‘tgansiz.' : '✅ Muvaffaqiyatli ro‘yxatdan o‘tdingiz!',
+    Markup.inlineKeyboard([
+      [Markup.button.url('1 chi kanal', 'https://t.me/visualstudiodownload')],
+      [Markup.button.callback(`✅ Obuna bo'ldim`, 'done')],
+    ])
+  )
+})
+
+bot.action('done', async ctx => {
+  await ctx.answerCbQuery()
+  const member = await ctx.telegram.getChatMember('@visualstudiodownload', ctx.from.id)
+  console.log(member)
+  const isMember = ['creator', 'administrator', 'member'].includes(member.status) ||
+    (member.status === 'restricted' && member.is_member)
+
+  if (!isMember)
+    return ctx.reply("Avval kanalga obuna bo'ling !?")
+
+  return ctx.reply("✅ Obuna bo'lganingiz tekshirildi !?")
+})
+
+
 
 const mainKeyboard = Markup.keyboard([
     ['👤 Men haqimda'],
@@ -64,18 +129,6 @@ function botInfo(botData) {
     ].join('\n')
 }
 
-bot.start(async (ctx) => {
-    await ctx.reply(
-        `👋 Assalomu alaykum, ${ctx.from.first_name}!\n\n` +
-        '🤖 <b>Ma’lumotlar botiga xush kelibsiz!</b>\n\n' +
-        'Kerakli bo‘limni tanlang:',
-        {
-            ...mainKeyboard,
-            parse_mode: 'HTML'
-        }
-    )
-})
-
 bot.hears('👤 Men haqimda', async (ctx) => {
     await ctx.reply(userInfo(ctx.from), {
         parse_mode: 'HTML',
@@ -131,5 +184,8 @@ bot.catch((error, ctx) => {
     console.error('Bot xatosi:', error.message)
     ctx.reply('❌ Xatolik yuz berdi. Iltimos, qayta urinib ko‘ring.')
 })
+
+
+
 
 module.exports = bot
